@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>НДФЛ Калькулятор — Gross ⇄ Net 2025</title>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0f12;
+      --surface: #141720;
+      --surface2: #1c2030;
+      --border: #252a3a;
+      --accent: #5bffc8;
+      --accent-dim: rgba(91,255,200,0.12);
+      --accent2: #ff6b6b;
+      --text: #e8eaf0;
+      --muted: #6b7280;
+      --muted2: #3d4455;
+    }
+
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; padding: 2rem 1rem 5rem;
+    }
+
+    .bg-grid {
+      position: fixed; inset: 0; z-index: 0;
+      background-image:
+        linear-gradient(rgba(91,255,200,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(91,255,200,0.025) 1px, transparent 1px);
+      background-size: 40px 40px; pointer-events: none;
+    }
+
+    .container { position: relative; z-index: 1; max-width: 860px; margin: 0 auto; }
+
+    header { margin-bottom: 2rem; animation: fadeUp 0.5s ease both; }
+
+    .badge {
+      display: inline-block; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--accent); border: 1px solid rgba(91,255,200,0.4);
+      border-radius: 3px; padding: 3px 10px; margin-bottom: 0.9rem;
+    }
+
+    h1 { font-family: 'Unbounded', sans-serif; font-size: clamp(1.3rem,4vw,2rem); font-weight: 700; line-height: 1.2; color: #fff; }
+    h1 span { color: var(--accent); }
+    .subtitle { font-size: 12px; color: var(--muted); margin-top: 0.5rem; }
+
+    .section-label {
+      font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 0.6rem; margin-top: 1.75rem;
+    }
+
+    /* Input pair */
+    .input-pair {
+      display: grid; grid-template-columns: 1fr 44px 1fr;
+      gap: 0; margin-bottom: 0.5rem; align-items: stretch;
+    }
+
+    .input-box {
+      background: var(--surface); border: 1px solid var(--border);
+      padding: 1.1rem 1.25rem 1rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .input-box:focus-within {
+      border-color: rgba(91,255,200,0.5);
+      box-shadow: 0 0 0 3px rgba(91,255,200,0.06);
+      z-index: 1; position: relative;
+    }
+    .input-box.left  { border-radius: 12px 0 0 12px; }
+    .input-box.right { border-radius: 0 12px 12px 0; }
+
+    .input-box-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+    .pill {
+      font-size: 9px; padding: 2px 7px; border-radius: 3px; letter-spacing: 0.06em; font-weight: 500;
+    }
+    .pill-green { background: rgba(91,255,200,0.12); color: var(--accent); }
+    .pill-red   { background: rgba(255,107,107,0.12); color: var(--accent2); }
+
+    .input-field-wrap { display: flex; align-items: baseline; gap: 6px; }
+    input[type="text"] {
+      flex: 1; min-width: 0; background: transparent; border: none; outline: none;
+      color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 500;
+    }
+    .input-currency { font-size: 13px; color: var(--muted); flex-shrink: 0; }
+    .input-hint { font-size: 11px; color: var(--muted2); line-height: 1.4; }
+
+    .pair-divider {
+      display: flex; align-items: center; justify-content: center;
+      background: var(--surface2);
+      border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+      font-size: 18px; color: var(--accent); opacity: 0.6; flex-shrink: 0;
+    }
+
+    @media (max-width: 540px) {
+      .input-pair { grid-template-columns: 1fr; }
+      .input-box.left  { border-radius: 12px 12px 0 0; border-bottom: none; }
+      .input-box.right { border-radius: 0 0 12px 12px; border-top: none; }
+      .pair-divider { border-left: 1px solid var(--border); border-right: 1px solid var(--border); border-top: none; border-bottom: none; padding: 0.4rem 0; }
+    }
+
+    /* Summary */
+    .summary {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 1px; background: var(--border);
+      border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+      margin-bottom: 0.5rem; animation: fadeUp 0.5s 0.08s ease both;
+    }
+    .summary-cell { background: var(--surface); padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 4px; }
+    .summary-cell-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+    .summary-cell-value { font-family: 'Unbounded', sans-serif; font-size: 15px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .summary-cell-value.green { color: var(--accent); }
+    .summary-cell-value.red   { color: var(--accent2); }
+    .summary-cell-sub { font-size: 10px; color: var(--muted2); }
+
+    @media (max-width: 540px) { .summary { grid-template-columns: 1fr; } }
+
+    /* Table */
+    .table-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+      animation: fadeUp 0.5s 0.13s ease both;
+    }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th {
+      font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+      text-align: right; padding: 0.65rem 1rem; background: var(--surface2);
+    }
+    thead th:first-child { text-align: left; }
+    tbody tr { border-bottom: 1px solid rgba(255,255,255,0.035); transition: background 0.12s; }
+    tbody tr:hover { background: var(--surface2); }
+    tbody tr:last-child { border-bottom: none; }
+    td { padding: 0.65rem 1rem; text-align: right; color: var(--muted); }
+    td:first-child { text-align: left; color: var(--text); font-weight: 500; }
+    td.net-col { color: var(--text); font-weight: 500; }
+    .dot { display: inline-block; width: 7px; height: 7px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+    tfoot tr { border-top: 2px solid var(--border); }
+    tfoot td { padding: 0.85rem 1rem; text-align: right; font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 600; color: var(--accent); }
+    tfoot td:first-child { text-align: left; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+
+    .legend {
+      display: flex; gap: 0.6rem 1.1rem; flex-wrap: wrap;
+      padding: 0.8rem 1.25rem; border-top: 1px solid var(--border); background: var(--surface2);
+    }
+    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+
+    footer { text-align: center; font-size: 11px; color: var(--muted2); margin-top: 2rem; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="container">
+
+  <header>
+    <div class="badge">РФ · НДФЛ 2025</div>
+    <h1>Калькулятор<br><span>Gross ⇄ Net</span></h1>
+    <p class="subtitle">Прогрессивная шкала · Нарастающий итог</p>
+  </header>
+
+  <div class="section-label">Введите gross или net — второе поле пересчитается автоматически</div>
+  <div class="input-pair">
+
+    <div class="input-box left">
+      <div class="input-box-label">
+        Net на руки &nbsp;<span class="pill pill-green">среднее / мес</span>
+      </div>
+      <div class="input-field-wrap">
+        <input type="text" id="targetInput" value="100 000" inputmode="numeric" autocomplete="off">
+        <span class="input-currency">₽</span>
+      </div>
+      <div class="input-hint">После вычета НДФЛ · среднее за год</div>
+    </div>
+
+    <div class="pair-divider">⇄</div>
+
+    <div class="input-box right">
+      <div class="input-box-label">
+        Gross &nbsp;<span class="pill pill-red">до НДФЛ / мес</span>
+      </div>
+      <div class="input-field-wrap">
+        <input type="text" id="grossInput" value="115 000" inputmode="numeric" autocomplete="off">
+        <span class="input-currency">₽</span>
+      </div>
+      <div class="input-hint">Оклад до удержания налога</div>
+    </div>
+
+  </div>
+
+  <div class="section-label">Итоги за год</div>
+  <div class="summary">
+    <div class="summary-cell">
+      <div class="summary-cell-label">Gross за год</div>
+      <div class="summary-cell-value" id="mGrossYear">—</div>
+      <div class="summary-cell-sub">оклад × 12 мес</div>
+    </div>
+    <div class="summary-cell">
+      <div class="summary-cell-label">НДФЛ за год</div>
+      <div class="summary-cell-value red" id="mTax">—</div>
+      <div class="summary-cell-sub" id="mEffRate">эффект. ставка</div>
+    </div>
+    <div class="summary-cell">
+      <div class="summary-cell-label">Среднее Net / мес</div>
+      <div class="summary-cell-value green" id="mAvgNet">—</div>
+      <div class="summary-cell-sub">сумма на руки ÷ 12</div>
+    </div>
+  </div>
+
+  <div class="section-label">Помесячный расчёт НДФЛ</div>
+  <div class="table-card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Месяц</th>
+            <th>Нараст. доход</th>
+            <th>НДФЛ за месяц</th>
+            <th>Net на руки</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+        <tfoot>
+          <tr>
+            <td>Среднее net / мес</td>
+            <td></td>
+            <td></td>
+            <td id="footAvg">—</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><span class="dot" style="background:#4ade80"></span>13% — до 2 400 000 ₽</div>
+      <div class="legend-item"><span class="dot" style="background:#facc15"></span>15% — до 5 000 000 ₽</div>
+      <div class="legend-item"><span class="dot" style="background:#fb923c"></span>18% — до 20 000 000 ₽</div>
+      <div class="legend-item"><span class="dot" style="background:#f472b6"></span>20% — до 50 000 000 ₽</div>
+      <div class="legend-item"><span class="dot" style="background:#c084fc"></span>22% — свыше 50 000 000 ₽</div>
+    </div>
+  </div>
+
+  <footer>Расчёт носит справочный характер · НДФЛ РФ 2025 · Прогрессивная шкала</footer>
+</div>
+
+<script>
+  var BRACKETS = [
+    { limit: 2400000,  rate: 0.13, color: '#4ade80' },
+    { limit: 5000000,  rate: 0.15, color: '#facc15' },
+    { limit: 20000000, rate: 0.18, color: '#fb923c' },
+    { limit: 50000000, rate: 0.20, color: '#f472b6' },
+    { limit: 1e18,     rate: 0.22, color: '#c084fc' },
+  ];
+  var MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+
+  function fmtInput(n) {
+    if (!n || isNaN(n)) return '0';
+    var parts = String(Math.round(n)).split('');
+    var res = [];
+    for (var i = 0; i < parts.length; i++) {
+      if (i > 0 && (parts.length - i) % 3 === 0) res.push('\u00a0');
+      res.push(parts[i]);
+    }
+    return res.join('');
+  }
+
+  function parseInput(s) {
+    var n = parseFloat((s||'').replace(/[\u00a0\s]/g,'').replace(',','.'));
+    return isNaN(n) ? 0 : n;
+  }
+
+  function attachMask(el, onChange) {
+    el.addEventListener('input', function() {
+      var raw = el.value.replace(/[\u00a0\s]/g,'').replace(',','.');
+      var num = parseFloat(raw);
+      if (!isNaN(num) && raw !== '') {
+        var cur = el.selectionStart, oldLen = el.value.length;
+        el.value = fmtInput(num);
+        var diff = el.value.length - oldLen;
+        el.selectionStart = el.selectionEnd = Math.max(0, cur + diff);
+        if (onChange) onChange(num);
+      } else {
+        el.value = '0';
+        if (onChange) onChange(0);
+      }
+    });
+    el.addEventListener('keydown', function(e) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      var ok = ['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Home','End'];
+      if (ok.indexOf(e.key) !== -1) return;
+      if (!/^\d$/.test(e.key)) e.preventDefault();
+    });
+    el.addEventListener('focus', function() { setTimeout(function(){ el.select(); }, 0); });
+  }
+
+  function taxCum(x) {
+    var t = 0, prev = 0;
+    for (var i = 0; i < BRACKETS.length; i++) {
+      if (x <= prev) break;
+      t += (Math.min(x, BRACKETS[i].limit) - prev) * BRACKETS[i].rate;
+      prev = BRACKETS[i].limit;
+    }
+    return t;
+  }
+
+  function r2(n) { return Math.round(n * 100) / 100; }
+
+  function bracketColor(cum) {
+    for (var i = 0; i < BRACKETS.length; i++) { if (cum <= BRACKETS[i].limit) return BRACKETS[i].color; }
+    return BRACKETS[BRACKETS.length-1].color;
+  }
+
+  function breakdown(g) {
+    var rows = [];
+    for (var m = 1; m <= 12; m++) {
+      var cum = r2(g*m), cumPrev = r2(g*(m-1));
+      var taxM = r2(taxCum(cum) - taxCum(cumPrev));
+      rows.push({ m:m, cum:cum, taxM:taxM, net:r2(g-taxM) });
+    }
+    return rows;
+  }
+
+  function avgNetFor(g) {
+    if (!g) return 0;
+    var rows = breakdown(g), s = 0;
+    for (var i = 0; i < rows.length; i++) s += rows[i].net;
+    return s / 12;
+  }
+
+  function fmt(n) {
+    return r2(n).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})+'\u00a0\u20bd';
+  }
+
+  function render(g) {
+    var annual = r2(g*12);
+    var rows = g ? breakdown(g) : [];
+    var totalTax = 0, totalNet = 0;
+    for (var i = 0; i < rows.length; i++) { totalTax += rows[i].taxM; totalNet += rows[i].net; }
+    totalTax = r2(totalTax);
+    var avg = g ? r2(totalNet/12) : 0;
+    var effRate = annual > 0 ? (totalTax/annual*100).toFixed(2) : '0.00';
+
+    document.getElementById('mGrossYear').textContent = fmt(annual);
+    document.getElementById('mTax').textContent = fmt(totalTax);
+    document.getElementById('mEffRate').textContent = 'эффект. ставка ' + effRate + '%';
+    document.getElementById('mAvgNet').textContent = fmt(avg);
+    document.getElementById('footAvg').textContent = fmt(avg);
+
+    if (!g) { document.getElementById('tbody').innerHTML = ''; return; }
+
+    var html = '';
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i], col = bracketColor(r.cum);
+      html += '<tr>' +
+        '<td>' + MONTHS[r.m-1] + '</td>' +
+        '<td>' + fmt(r.cum) + '</td>' +
+        '<td><span class="dot" style="background:'+col+'"></span>' + fmt(r.taxM) + '</td>' +
+        '<td class="net-col">' + fmt(r.net) + '</td>' +
+        '</tr>';
+    }
+    document.getElementById('tbody').innerHTML = html;
+  }
+
+  function findGross(targetNet) {
+    if (!targetNet) return 0;
+    var lo = targetNet, hi = targetNet * 5;
+    for (var i = 0; i < 300; i++) {
+      var mid = (lo+hi)/2;
+      if (avgNetFor(mid) < targetNet) lo = mid; else hi = mid;
+    }
+    return r2((lo+hi)/2);
+  }
+
+  var grossEl  = document.getElementById('grossInput');
+  var targetEl = document.getElementById('targetInput');
+  var syncing  = false;
+
+  attachMask(targetEl, function(targetNet) {
+    if (syncing) return; syncing = true;
+    var g = findGross(targetNet);
+    grossEl.value = fmtInput(g);
+    render(g);
+    syncing = false;
+  });
+
+  attachMask(grossEl, function(g) {
+    if (syncing) return; syncing = true;
+    var avg = r2(avgNetFor(g));
+    targetEl.value = fmtInput(avg);
+    render(g);
+    syncing = false;
+  });
+
+  var initTarget = parseInput(targetEl.value);
+  var initGross = findGross(initTarget);
+  grossEl.value = fmtInput(initGross);
+  render(initGross);
+</script>
+</body>
+</html>
